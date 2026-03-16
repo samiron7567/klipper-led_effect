@@ -1,0 +1,19 @@
+name: Autolabel Pull Requests
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+jobs:
+  autolabel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply labels based on PR metadata
+        uses: release-drafter/release-drafter/autolabeler@v3

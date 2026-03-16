@@ -1,27 +1,78 @@
 name: Release
 
+permissions:
+  contents: write
+
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag name for the release (e.g. v1.2.3)'
+        required: true
+      release_name:
+        description: 'Release name (optional)'
+        required: false
   push:
     tags:
       - 'v*'
 
 jobs:
-  createrelease:
-    name: Create Release
-    runs-on: [ubuntu-latest]
+  prepare:
+    name: Prepare Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.set.outputs.release_tag }}
+      release_version: ${{ steps.set.outputs.release_version }}
     steps:
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Determine release tag and version
+      id: set
+      run: |
+        if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+          TAG="${{ github.event.inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            echo "Tag is required for workflow dispatch"
+            exit 1
+          fi
+        else
+          TAG="${GITHUB_REF##*/}"
+        fi
+        RELEASE_VERSION="${TAG#v}"
+        echo "release_tag=$TAG" >> $GITHUB_OUTPUT
+        echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: true
-        prerelease: true
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Merge develop into master and tag release
+      if: ${{ github.event_name == 'workflow_dispatch' }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git fetch origin develop:develop
+        git fetch origin master:master
+        git checkout master
+        git merge --no-ff develop -m "Merge develop into master for ${{ steps.set.outputs.release_tag }}"
+        git tag -a "${{ steps.set.outputs.release_tag }}" -m "Release ${{ steps.set.outputs.release_tag }}"
+        git push origin master
+        git push origin "${{ steps.set.outputs.release_tag }}"
+
+  create_release:
+    name: Create GitHub Release
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+    - name: Draft release notes with release-drafter
+      id: drafter
+      uses: release-drafter/release-drafter@v7
+      with:
+        tag: ${{ needs.prepare.outputs.release_tag }}
+        name: ${{ github.event.inputs.release_name || format('Release %s', needs.prepare.outputs.release_tag) }}
+        publish: true
     - name: Output Release URL File
-      run: echo "${{ steps.create_release.outputs.upload_url }}" > release_url.txt
+      run: echo "${{ steps.drafter.outputs.upload_url }}" > release_url.txt
     - name: Save Release URL File for publish
       uses: actions/upload-artifact@v4
       with:
@@ -30,6 +81,7 @@ jobs:
 
   build:
     name: Build packages
+    needs: create_release
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -37,29 +89,28 @@ jobs:
           - os: macos-latest
             TARGET: macos
             CMD_BUILD: >
-                pyinstaller -F -w -n ledeffect-simulator-macos -p .. app.py &&
-                cd dist/ &&
-                zip -r9 ledeffect-simulator-macos ledeffect-simulator-macos.app
-            OUT_FILE_NAME: ledeffect-simulator-macos.zip
+              pyinstaller -F -w -n ledeffect-simulator-macos -p .. app.py &&
+              cd dist/ &&
+              zip -r9 ledeffect-simulator-macos-${{ needs.prepare.outputs.release_version }}.zip ledeffect-simulator-macos.app
+            OUT_FILE_NAME: ledeffect-simulator-macos-${{ needs.prepare.outputs.release_version }}.zip
             ASSET_MIME: application/zip
             POETRY_FOLDER: ~/.local
           - os: windows-latest
             TARGET: windows
-            CMD_BUILD: pyinstaller -F -w -n ledeffect-simulator-win -p .. app.py
-            OUT_FILE_NAME: ledeffect-simulator-win.exe
+            CMD_BUILD: >
+              pyinstaller -F -w -n ledeffect-simulator-win -p .. app.py &&
+              mv dist/ledeffect-simulator-win.exe dist/ledeffect-simulator-win-${{ needs.prepare.outputs.release_version }}.exe
+            OUT_FILE_NAME: ledeffect-simulator-win-${{ needs.prepare.outputs.release_version }}.exe
             ASSET_MIME: application/vnd.microsoft.portable-executable
             POETRY_FOLDER: C:\Users\runneradmin\.local
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.prepare.outputs.release_tag }}
     - name: Set up Python 3.14
       uses: actions/setup-python@v6
       with:
         python-version: 3.14
-    #- name: cache poetry install
-    #  uses: actions/cache@v3
-    #  with:
-    #    path: ${{matrix.POETRY_FOLDER}}
-    #    key: poetry-1.3.3-0
     - uses: snok/install-poetry@v1
       with:
         virtualenvs-create: true
@@ -99,6 +150,5 @@ jobs:
       with:
         upload_url: ${{ steps.get_release_info.outputs.upload_url }}
         asset_path: simulator/dist/${{matrix.OUT_FILE_NAME}}
-        asset_name: ${{ matrix.OUT_FILE_NAME}}
-        asset_content_type: ${{ matrix.ASSET_MIME}}
-
+        asset_name: ${{ matrix.OUT_FILE_NAME }}
+        asset_content_type: ${{ matrix.ASSET_MIME }}
