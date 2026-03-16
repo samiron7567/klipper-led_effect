@@ -131,6 +131,13 @@ jobs:
       with:
         virtualenvs-create: true
         virtualenvs-in-project: true
+
+    - name: Ensure Poetry is available on PATH
+      shell: bash
+      run: |
+        echo "Adding poetry to PATH from $HOME/.local/bin"
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
     - name: cache deps
       id: cache-deps
       uses: actions/cache@v5
@@ -141,16 +148,16 @@ jobs:
     - name: Install environment
       working-directory: ./simulator
       shell: bash
-      run: python -m poetry install --no-interaction --no-root
+      run: poetry install --no-interaction --no-root
       if: steps.cache-deps.outputs.cache-hit != 'true'
     - name: Install root environment
       working-directory: ./simulator
       shell: bash
-      run: python -m poetry install --no-interaction
+      run: poetry install --no-interaction
     - name: Build with pyinstaller for ${{ matrix.TARGET }}
       working-directory: ./simulator
       shell: bash
-      run: python -m poetry run ${{ matrix.CMD_BUILD }}
+      run: poetry run ${{ matrix.CMD_BUILD }}
     - name: Load Release URL File from release job
       uses: actions/download-artifact@v8
       with:
