@@ -376,7 +376,12 @@ class Simulator( simgui.SimFrame ):
         for i, led in enumerate(self.leds):
             dc.SetPen(wx.Pen(led, 1, wx.PENSTYLE_SOLID))
             dc.SetBrush(wx.Brush(led))
+
+            x = int(round(self.led_coordinates[i][0] + offset_x))
+            y = int(round(self.led_coordinates[i][1] + offset_y))
+            size = int(round(self.led_coordinates[i][2]))
+
             if self.m_cbShape.GetValue() == "Circle":
-                dc.DrawCircle(self.led_coordinates[i][0] + offset_x, self.led_coordinates[i][1] + offset_y, self.led_coordinates[i][2]//2 )
+                dc.DrawCircle(x, y, size // 2)
             elif self.m_cbShape.GetValue() == "Square":
-                dc.DrawRectangle(self.led_coordinates[i][0] + offset_x, self.led_coordinates[i][1] + offset_y, self.led_coordinates[i][2], self.led_coordinates[i][2])
+                dc.DrawRectangle(x, y, size, size)
