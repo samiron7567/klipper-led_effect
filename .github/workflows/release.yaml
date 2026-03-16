@@ -51,10 +51,10 @@ jobs:
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git fetch origin develop:develop
-        git fetch origin master:master
+        git fetch origin develop
+        git fetch origin master
         git checkout master
-        git merge --no-ff develop -m "Merge develop into master for ${{ steps.set.outputs.release_tag }}"
+        git merge --no-ff origin/develop -m "Merge develop into master for ${{ steps.set.outputs.release_tag }}"
         git tag -a "${{ steps.set.outputs.release_tag }}" -m "Release ${{ steps.set.outputs.release_tag }}"
         git push origin master
         git push origin "${{ steps.set.outputs.release_tag }}"
