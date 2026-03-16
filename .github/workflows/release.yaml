@@ -41,7 +41,7 @@ jobs:
         echo "release_version=$RELEASE_VERSION" >> $GITHUB_OUTPUT
 
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
@@ -74,7 +74,7 @@ jobs:
     - name: Output Release URL File
       run: echo "${{ steps.drafter.outputs.upload_url }}" > release_url.txt
     - name: Save Release URL File for publish
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: release_url
         path: release_url.txt
@@ -83,6 +83,8 @@ jobs:
     name: Build packages
     needs: create_release
     runs-on: ${{ matrix.os }}
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       matrix:
         include:
@@ -104,7 +106,7 @@ jobs:
             ASSET_MIME: application/vnd.microsoft.portable-executable
             POETRY_FOLDER: C:\Users\runneradmin\.local
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         ref: ${{ needs.prepare.outputs.release_tag }}
     - name: Set up Python 3.14
@@ -117,7 +119,7 @@ jobs:
         virtualenvs-in-project: true
     - name: cache deps
       id: cache-deps
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: simulator/.venv
         key: pydeps-${{ hashFiles('**/poetry.lock') }}
@@ -133,7 +135,7 @@ jobs:
       working-directory: ./simulator
       run: ${{matrix.POETRY_FOLDER}}/bin/poetry run ${{matrix.CMD_BUILD}}
     - name: Load Release URL File from release job
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v5
       with:
         name: release_url
     - name: Get Release File Name & Upload URL

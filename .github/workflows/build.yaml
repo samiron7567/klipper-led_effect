@@ -9,6 +9,8 @@ jobs:
   build:
     name: Build packages
     runs-on: ${{ matrix.os }}
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       matrix:
         include:
@@ -28,7 +30,7 @@ jobs:
             ASSET_MIME: application/vnd.microsoft.portable-executable
             POETRY_FOLDER: C:\Users\runneradmin\.local
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
     - name: Set up Python 3.14
       uses: actions/setup-python@v6
       with:
@@ -44,7 +46,7 @@ jobs:
         virtualenvs-in-project: true
     - name: cache deps
       id: cache-deps
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: simulator/.venv
         key: pydeps-${{ hashFiles('**/poetry.lock') }}
@@ -60,7 +62,7 @@ jobs:
       working-directory: ./simulator
       run: ${{matrix.POETRY_FOLDER}}/bin/poetry run ${{matrix.CMD_BUILD}}
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: ledeffect-simulator_${{matrix.TARGET}}
         path: simulator/dist/${{matrix.OUT_FILE_NAME}}
