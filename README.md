@@ -99,6 +99,135 @@ Delete the repository (optional):
 
 Documentation can be found [here](docs/LED_Effect.md).
 
+## Instances (Template-Based Multi-LED Support)
+
+The `instances` parameter allows a single effect definition to automatically generate multiple independently controllable effects, each targeting a different LED chain. This eliminates config duplication when multiple LED strips share the same visual behavior.
+
+### Basic Example
+
+Instead of duplicating an effect for each LED strip:
+
+```ini
+# Before: duplicated config for each strip
+[led_effect left_breathing]
+autostart: false
+frame_rate: 10
+leds:
+    neopixel:left_strip
+layers:
+    breathing 3 1 top (1,0,0)
+
+[led_effect right_breathing]
+autostart: false
+frame_rate: 10
+leds:
+    neopixel:right_strip
+layers:
+    breathing 3 1 top (1,0,0)
+```
+
+Use `instances` to define it once:
+
+```ini
+# After: single template generates both effects
+[led_effect breathing]
+instances:
+    left = neopixel:left_strip
+    right = neopixel:right_strip
+autostart: false
+frame_rate: 10
+layers:
+    breathing 3 1 top (1,0,0)
+```
+
+This generates two effects: `left_breathing` and `right_breathing`, each independently controllable:
+
+```
+SET_LED_EFFECT EFFECT=left_breathing
+SET_LED_EFFECT EFFECT=right_breathing STOP=1
+```
+
+### Multi-Toolhead Printer Example
+
+For printers with multiple toolheads sharing the same LED layout (e.g. Voron with toolchanger), `instances` dramatically reduces config size. A 4-toolhead setup with 10+ effects goes from ~400 lines to ~80:
+
+```ini
+# Logo LEDs (1-8) — breathing red when busy
+[led_effect logo_busy]
+instances:
+    t0 = neopixel:T0 (1-8)
+    t1 = neopixel:T1 (1-8)
+    t2 = neopixel:T2 (1-8)
+    t3 = neopixel:T3 (1-8)
+autostart: false
+frame_rate: 10
+layers:
+    breathing 3 1 top (1,0,0)
+
+# Nozzle LEDs (9-10 RGBW) — solid white when printing
+[led_effect nozzle_printing]
+instances:
+    t0 = neopixel:T0 (9-10)
+    t1 = neopixel:T1 (9-10)
+    t2 = neopixel:T2 (9-10)
+    t3 = neopixel:T3 (9-10)
+autostart: false
+frame_rate: 10
+layers:
+    static 1 0 top (0,0,0,1.0)
+
+# Rainbow effect on full strip
+[led_effect rainbow]
+instances:
+    t0 = neopixel:T0
+    t1 = neopixel:T1
+    t2 = neopixel:T2
+    t3 = neopixel:T3
+autostart: false
+frame_rate: 10
+layers:
+    gradient 0.3 1 add (1.0,0.0,0.0),(0.0,1.0,0.0),(0.0,0.0,1.0)
+```
+
+Generated effects follow the naming pattern `{prefix}_{template_name}`:
+
+```
+SET_LED_EFFECT EFFECT=t0_logo_busy        # Red breathing on T0 logo
+SET_LED_EFFECT EFFECT=t2_nozzle_printing  # White nozzle on T2
+SET_LED_EFFECT EFFECT=t3_rainbow          # Rainbow on T3 full strip
+STOP_LED_EFFECTS                          # Stops all effects globally
+```
+
+### Automation Macro Example
+
+Pair with gcode macros for automatic per-tool LED control:
+
+```ini
+[gcode_macro _START_TOOL_EFFECT]
+gcode:
+    {% set tool = params.TOOL|default("t0") %}
+    {% set effect = params.EFFECT|default("logo_standby") %}
+    SET_LED_EFFECT EFFECT={tool}_{effect}
+
+[gcode_macro _STOP_TOOL_EFFECT]
+gcode:
+    {% set tool = params.TOOL|default("t0") %}
+    {% set effect = params.EFFECT|default("logo_standby") %}
+    SET_LED_EFFECT EFFECT={tool}_{effect} STOP=1
+```
+
+### Parameter Reference
+
+| Parameter | Description |
+|-----------|-------------|
+| `instances` | Multi-line parameter. Each line: `prefix = led_spec` where prefix is prepended to the effect name and led_spec follows standard `leds:` syntax (e.g. `neopixel:strip (1-8)`) |
+
+**Notes:**
+- The `leds:` parameter is not needed when using `instances` — each instance defines its own LED target
+- The template section itself does not register a gcode command; only the generated children do
+- All other parameters (`autostart`, `frame_rate`, `layers`, `run_on_error`, etc.) are shared across all instances
+- Each generated effect is fully independent and can be started/stopped individually
+
 ## Support
 If you want to support me, either contribute code or 
 
