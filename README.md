@@ -227,8 +227,3 @@ gcode:
 - The template section itself does not register a gcode command; only the generated children do
 - All other parameters (`autostart`, `frame_rate`, `layers`, `run_on_error`, etc.) are shared across all instances
 - Each generated effect is fully independent and can be started/stopped individually
-
-## Support
-If you want to support me, either contribute code or 
-
-[![kofi](https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=flat-square)](https://ko-fi.com/Hagbard)
